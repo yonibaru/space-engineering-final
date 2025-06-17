@@ -1,0 +1,170 @@
+
+      <html xmlns:o='urn:schemas-microsoft-com:office:office'
+            xmlns:w='urn:schemas-microsoft-com:office:word'
+            xmlns='http://www.w3.org/TR/REC-html40'>
+      <head>
+          <meta charset="utf-8">
+          <title>Exported Document</title>
+          <style>
+              body { font-family: Arial, sans-serif; }
+          </style>
+      </head>
+      <body>
+          <h1 id="satelliteimageclassificationforcotsbasedsatellites">Satellite Image Classification for COTS-Based Satellites</h1>
+<h2 id="projectoverview">Project Overview</h2>
+<p>This project develops an efficient image classification system designed to be deployed on Commercial Off-The-Shelf (COTS) based satellites equipped with cameras. The primary objective is to <strong>optimize satellite-to-Earth communication bandwidth</strong> by intelligently determining which captured images are worth transmitting back to Earth and which can be safely dismissed on-board.</p>
+<p>By running this lightweight classifier directly on satellite hardware, we can:</p>
+<ul>
+<li>Reduce unnecessary data transmission costs</li>
+<li>Preserve bandwidth for high-value imagery</li>
+<li>Enable autonomous decision-making in space-based imaging systems</li>
+<li>Maximize the scientific and commercial value of satellite missions</li>
+</ul>
+<p>The classifier categorizes images into three main classes: <strong>cloudy</strong>, <strong>land</strong>, and <strong>water</strong>, with an additional <strong>space</strong> classification for dark/empty regions.</p>
+<h2 id="architectureselection">Architecture Selection</h2>
+<p>After extensive experimentation with various deep learning architectures, we determined that a <strong>custom CNN</strong> provides the optimal balance of accuracy and computational efficiency for our specific use case.</p>
+<h3 id="architecturestested">Architectures Tested:</h3>
+<ul>
+<li><strong>MobileNetV2</strong>: While efficient, showed suboptimal performance on our specific satellite imagery dataset</li>
+<li><strong>EfficientNet-B0</strong>: Good accuracy but higher computational overhead than desired for satellite deployment</li>
+<li><strong>Custom CNN</strong> ✅: Best performance with minimal resource requirements, specifically designed for 64x64 pixel tiles</li>
+</ul>
+<p>Our final architecture features:</p>
+<ul>
+<li>4 convolutional blocks with batch normalization and ReLU activation</li>
+<li>Progressive channel expansion (32→64→128→256)</li>
+<li>MaxPooling for spatial dimension reduction</li>
+<li>Fully connected classifier with dropout for regularization</li>
+<li>Optimized for 64x64 input images</li>
+</ul>
+<h2 id="dataaugmentationstrategy">Data Augmentation Strategy</h2>
+<p>We employed <strong>Albumentations</strong> library for robust data augmentation to improve model generalization:</p>
+<pre><code class="python language-python">train_transform = A.Compose([
+    A.Resize(height=64, width=64),
+    A.HorizontalFlip(p=0.5),              # Geographic invariance
+    A.Rotate(limit=15, p=0.3),            # Satellite orientation variations
+    A.ColorJitter(                        # Atmospheric and lighting conditions
+        brightness=0.2, 
+        contrast=0.2, 
+        saturation=0.2, 
+        hue=0.05, 
+        p=0.5
+    ),
+    A.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    ToTensorV2()
+])
+</code></pre>
+<p>These augmentations simulate real-world satellite imaging conditions including:</p>
+<ul>
+<li>Varying satellite orientations and flight paths</li>
+<li>Different atmospheric conditions and lighting</li>
+<li>Seasonal and temporal variations in surface appearance</li>
+</ul>
+<h2 id="datasetchallengesandvalidation">Dataset Challenges and Validation</h2>
+<h3 id="initialdatasetlimitations">Initial Dataset Limitations</h3>
+<p>Our project faced significant challenges due to the <strong>domain gap</strong> between our training data and real-world satellite imagery:</p>
+<ul>
+<li><strong>Training Data</strong>: Primarily composed of Google Maps imagery and some high-resolution satellite images</li>
+<li><strong>Target Domain</strong>: Actual satellite imagery captured by COTS cameras in Low Earth Orbit (LEO)</li>
+</ul>
+<p>This mismatch initially raised concerns about model generalization and real-world performance.</p>
+<h3 id="realworldvalidation">Real-World Validation</h3>
+<p>To validate our model's effectiveness, we conducted extensive testing using <strong>actual satellite images captured in space</strong>:</p>
+<ul>
+<li><strong>Hardware</strong>: Arducam cameras mounted on COTS satellites</li>
+<li><strong>Orbit</strong>: Low Earth Orbit (LEO) conditions</li>
+<li><strong>Dataset</strong>: <a href="https://data.mendeley.com/datasets/5kygfmfdmr/2">Satellite Image Classification Dataset</a></li>
+</ul>
+<p>The validation results demonstrated that despite the domain gap, our model successfully generalizes to real satellite imagery, confirming its suitability for deployment on actual satellite missions.</p>
+<h2 id="datasetsetup">Dataset Setup</h2>
+<h3 id="requireddataset">Required Dataset</h3>
+<p>Download the satellite image classification dataset from:
+<strong><a href="https://www.kaggle.com/datasets/mahmoudreda55/satellite-image-classification/">Kaggle: Satellite Image Classification</a></strong></p>
+<h3 id="datapreprocessingsteps">Data Preprocessing Steps</h3>
+<ol>
+<li>Download and extract the dataset</li>
+<li><strong>Important</strong>: Combine the <code>desert</code> and <code>green_area</code> classes into a single directory called <code>land</code></li>
+<li>Ensure your final directory structure looks like:</li>
+</ol>
+<pre><code>data/
+├── cloudy/
+│   ├── image1.jpg
+│   ├── image2.jpg
+│   └── ...
+├── land/          # Combined desert + green_area
+│   ├── image1.jpg
+│   ├── image2.jpg
+│   └── ...
+└── water/
+    ├── image1.jpg
+    ├── image2.jpg
+    └── ...
+</code></pre>
+<p>This consolidation reflects the practical reality that satellites primarily need to distinguish between cloud-covered areas, land masses, and water bodies, regardless of specific terrain types.</p>
+<h2 id="installation">Installation</h2>
+<pre><code class="bash language-bash"># Clone the repository
+git clone &lt;repository-url&gt;
+cd satellite-image-classifier
+
+# Install required dependencies
+pip install torch torchvision opencv-python numpy matplotlib scikit-learn seaborn tqdm albumentations
+</code></pre>
+<h2 id="usage">Usage</h2>
+<h3 id="training">Training</h3>
+<pre><code class="bash language-bash">python main.py
+</code></pre>
+<h3 id="singleimageclassification">Single Image Classification</h3>
+<pre><code class="python language-python">from main import test_image
+
+# Test a single image
+prediction, confidence = test_image('path/to/image.jpg', 'image_classifier_64x64.pth')
+print(f"Predicted: {prediction} (Confidence: {confidence:.3f})")
+</code></pre>
+<h3 id="largeimageanalysis">Large Image Analysis</h3>
+<pre><code class="python language-python">from main import test_large_image
+
+# Analyze large satellite images using tile-based approach
+results, confidence, image_type = test_large_image(
+    'path/to/large_satellite_image.jpg',
+    tile_size=64,
+    overlap=0.0,
+    confidence_threshold=0.5
+)
+</code></pre>
+<h2 id="modelfeatures">Model Features</h2>
+<ul>
+<li><strong>Lightweight Architecture</strong>: Optimized for resource-constrained satellite hardware</li>
+<li><strong>Tile-Based Processing</strong>: Handles large satellite images by processing 64x64 tiles</li>
+<li><strong>Space Detection</strong>: Automatically identifies and classifies dark/empty space regions</li>
+<li><strong>Confidence Scoring</strong>: Provides reliability metrics for each classification</li>
+<li><strong>Mixed Image Analysis</strong>: Generates comprehensive statistics for complex scenes</li>
+</ul>
+<h2 id="performancecharacteristics">Performance Characteristics</h2>
+<ul>
+<li><strong>Input Size</strong>: 64x64 pixels (optimized for satellite tile processing)</li>
+<li><strong>Classes</strong>: 4 (cloudy, land, water, space)</li>
+<li><strong>Memory Footprint</strong>: Minimal (suitable for satellite deployment)</li>
+<li><strong>Inference Speed</strong>: Real-time capable on COTS hardware</li>
+</ul>
+<h2 id="contributing">Contributing</h2>
+<p>This project is designed for satellite mission deployment. Contributions should focus on:</p>
+<ul>
+<li>Improving computational efficiency</li>
+<li>Enhancing generalization to new satellite platforms</li>
+<li>Optimizing for specific COTS hardware configurations</li>
+<li>Extending classification capabilities</li>
+</ul>
+<h2 id="license">License</h2>
+<p>[Add your license information here]</p>
+<h2 id="citation">Citation</h2>
+<p>If you use this work in your research or satellite missions, please cite:
+[Add citation information]</p>
+<h2 id="acknowledgments">Acknowledgments</h2>
+<ul>
+<li>Arducam for satellite camera hardware</li>
+<li>Kaggle community for the satellite image dataset</li>
+<li>Mendeley Data for real satellite imagery validation dataset</li>
+</ul>
+      </body>
+      </html>
+    
